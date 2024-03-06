@@ -4,3 +4,4 @@ dist/
 kincpp.egg-info/
 .idea/
 *.so
+result
