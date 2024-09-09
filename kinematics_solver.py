@@ -76,7 +76,7 @@ class KinematicsSolver(ABC):
         Returns:
             The current end effector TF.
         """
-        return _kincpp.forward(self.ee_home_config, self.joint_screw_axes,
+        return kincpp.forward(self.ee_home_config, self.joint_screw_axes,
                                joint_positions)
 
     def inv_kin(self,
@@ -106,7 +106,7 @@ class KinematicsSolver(ABC):
                     match the desired_ee_tf
                 3) The joint angles.
         """
-        success, joint_positions = _kincpp.inverse(
+        success, joint_positions = kincpp.inverse(
             self.ee_home_config, self.joint_screw_axes, desired_ee_tf,
             joint_position_guess, position_tolerance, orientation_tolerance,
             max_iterations)
