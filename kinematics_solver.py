@@ -83,6 +83,7 @@ class KinematicsSolver(ABC):
                 desired_ee_tf: np.ndarray,
                 joint_position_guess: np.ndarray,
                 project_to_joint_limits: bool = True,
+                use_psuedo_inverse: bool = False,
                 position_tolerance: float = 1e-3,
                 orientation_tolerance: float = 1e-3,
                 max_iterations: int = 20) -> (bool, bool, np.ndarray):
@@ -100,6 +101,9 @@ class KinematicsSolver(ABC):
                 joint limits and a post-solve clipping step will occur. This means
                 that the solution is not guaranteed to be at the desired ee pose.
                 This can be desirable when teleoperating an arm.
+            use_psuedo_inverse: Whether to use a psuedo inverse for the IK solver.
+                By default, the Jacobian inversion is done via SVD. Using the psuedo
+                inverse is generally faster, but less accurate.
             position_tolerance: The end effector Cartesian position tolerance.
             orientation_tolerance: The end effector orientation tolerance.
             max_iterations: The number of iterations before IK solver quits.
@@ -116,8 +120,8 @@ class KinematicsSolver(ABC):
         success, joint_positions = kincpp.inverse(
             self.ee_home_config, self.joint_screw_axes, desired_ee_tf,
             joint_position_guess, self.lower_joint_limits, self.upper_joint_limits,
-            project_to_joint_limits, position_tolerance, orientation_tolerance,
-            max_iterations)
+            project_to_joint_limits, use_psuedo_inverse, position_tolerance,
+            orientation_tolerance, max_iterations)
 
         if not project_to_joint_limits:
             joint_limit_violation, joint_positions = self._wrap_joint_positions(
