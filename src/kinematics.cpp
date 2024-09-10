@@ -398,6 +398,9 @@ namespace kincpp {
                                                const Eigen::MatrixXd &Slist,
                                                const Eigen::MatrixXd &T,
                                                Eigen::VectorXd &thetalist,
+                                               const Eigen::ArrayXd &lower_limits,
+                                               const Eigen::ArrayXd &upper_limits,
+                                               bool project_to_joint_limits,
                                                double position_tolerance,
                                                double orientation_tolerance,
                                                int max_iterations=20) {
@@ -411,14 +414,18 @@ namespace kincpp {
         bool err = (angular.norm() > orientation_tolerance || linear.norm() > position_tolerance);
         Eigen::MatrixXd Js;
 
-        while (err && i < max_iterations) {
+        while (err && i++ < max_iterations) {
             Js = JacobianSpace(Slist, thetalist);
             thetalist += Js.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(Vs);
-            i += 1;
-            // iterate
+
+            if (project_to_joint_limits) {
+                thetalist = thetalist.array().max(lower_limits).min(upper_limits).matrix();
+            }
             Tfk = FKinSpace(M, Slist, thetalist);
             Tdiff = TransInv(Tfk) * T;
             Vs = Adjoint(Tfk) * se3ToVec(MatrixLog6(Tdiff));
+
+            // Compute error
             angular = Eigen::Vector3d(Vs(0), Vs(1), Vs(2));
             linear = Eigen::Vector3d(Vs(3), Vs(4), Vs(5));
             err = (angular.norm() > orientation_tolerance || linear.norm() > position_tolerance);
@@ -455,6 +462,7 @@ m.def("inverse", &kincpp::IKinSpace, "Inverse kinematics function. \n\n"
                                      "    np.ndarray[J, 1]: A joint angle solution corresponding to T.\n"
                                      "                      If IK solver failed, result is undefined. \n",
                                      py::arg("M"), py::arg("S"), py::arg("T"), py::arg("joint_position_guess"),
-                                     py::arg("position_tolerance"), py::arg("orientation_tolerance"),
-                                     py::arg("max_iterations") = 20);
+                                     py::arg("joint_lower_limits"), py::arg("joint_upper_limits"),
+                                     py::arg("project_to_joint_limits"), py::arg("position_tolerance"),
+                                     py::arg("orientation_tolerance"), py::arg("max_iterations") = 20);
 }

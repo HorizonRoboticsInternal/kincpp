@@ -82,6 +82,7 @@ class KinematicsSolver(ABC):
     def inv_kin(self,
                 desired_ee_tf: np.ndarray,
                 joint_position_guess: np.ndarray,
+                project_to_joint_limits: bool = True,
                 position_tolerance: float = 1e-3,
                 orientation_tolerance: float = 1e-3,
                 max_iterations: int = 20) -> (bool, bool, np.ndarray):
@@ -93,6 +94,12 @@ class KinematicsSolver(ABC):
             joint_position_guess: The joint position initial guess for the IK solver.
                 If the ee delta is small enough, a safe guess is simply the current
                 joint position.
+            project_to_joint_limits: Whether to project joint updates outside the
+                joint limits to the closest joint limit during Newton's method.
+                If False, will produce a solution that is possibly outside the
+                joint limits and a post-solve clipping step will occur. This means
+                that the solution is not guaranteed to be at the desired ee pose.
+                This can be desirable when teleoperating an arm.
             position_tolerance: The end effector Cartesian position tolerance.
             orientation_tolerance: The end effector orientation tolerance.
             max_iterations: The number of iterations before IK solver quits.
@@ -108,13 +115,16 @@ class KinematicsSolver(ABC):
         """
         success, joint_positions = kincpp.inverse(
             self.ee_home_config, self.joint_screw_axes, desired_ee_tf,
-            joint_position_guess, position_tolerance, orientation_tolerance,
+            joint_position_guess, self.lower_joint_limits, self.upper_joint_limits,
+            project_to_joint_limits, position_tolerance, orientation_tolerance,
             max_iterations)
 
-        joint_limit_violation, joint_positions = self._wrap_joint_positions(
-            joint_positions)
+        if not project_to_joint_limits:
+            joint_limit_violation, joint_positions = self._wrap_joint_positions(
+                joint_positions)
+            return success, joint_limit_violation, joint_positions
 
-        return success, joint_limit_violation, joint_positions
+        return success, False, joint_positions
 
     def create_cartesian_traj(
         self,
