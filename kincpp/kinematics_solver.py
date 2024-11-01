@@ -3,7 +3,7 @@ from loguru import logger
 from typing import List, Optional
 from scipy.spatial.transform import Rotation as R
 from abc import ABC, abstractmethod
-from .lib import kincpp
+import kincpp
 
 
 class KinematicsSolver(ABC):

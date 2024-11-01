@@ -63,7 +63,13 @@ def ik_test():
 
     expected_res = np.array([1.57073783, 2.99966384, 3.1415342], dtype=np.float64)
 
-    success, ik_res = kincpp.inverse(M, S, T, joint_position_guess, position_tolerance, orientation_tolerance)
+    success, ik_res = kincpp.inverse(M, S, T, joint_position_guess,
+                                     joint_lower_limits=np.zeros(3),
+                                     joint_upper_limits=np.zeros(3),
+                                     project_to_joint_limits=False,
+                                     use_pseudo_inverse=False,
+                                     position_tolerance=position_tolerance,
+                                     orientation_tolerance=orientation_tolerance)
 
     assert success == True
     assert np.allclose(ik_res, expected_res, atol=1e-4)

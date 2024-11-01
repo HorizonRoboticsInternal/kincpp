@@ -401,7 +401,7 @@ namespace kincpp {
                                                const Eigen::ArrayXd &lower_limits,
                                                const Eigen::ArrayXd &upper_limits,
                                                bool project_to_joint_limits,
-                                               bool use_psuedo_inverse,
+                                               bool use_pseudo_inverse,
                                                double position_tolerance,
                                                double orientation_tolerance,
                                                int max_iterations=20) {
@@ -417,7 +417,7 @@ namespace kincpp {
 
         while (err && i++ < max_iterations) {
             Js = JacobianSpace(Slist, thetalist);
-            if (use_psuedo_inverse) {
+            if (use_pseudo_inverse) {
                 thetalist += Js.completeOrthogonalDecomposition().pseudoInverse() * Vs;
             }
             else {
@@ -453,24 +453,28 @@ m.def("forward", &kincpp::FKinSpace, "Forward kinematics function. \n\n"
                                      "    np.ndarray[4, 4]: The end effector transformation matrix.",
                                      py::arg("M"), py::arg("S"), py::arg("joint_positions"));
 
-m.def("inverse", &kincpp::IKinSpace, "Inverse kinematics function. \n\n"
-                                     "Parameters:\n"
-                                     "    M (np.ndarray[4, 4]): Home configuration of end effector.\n"
-                                     "    S (np.ndarray[6, J]): Screw axes of joints when in home configuration.\n"
-                                     "    T (np.ndarray[4, 4]): Desired end effector position and orientation.\n"
-                                     "    joint_position_guess (np.ndarray[J, 1]): Joint positions initial guess for IK solver.\n"
-                                     "    project_to_joint_limits (bool): Whether to respect joint limits during IK solve.\n"
-                                     "    use_psuedo_inverse (bool): Whether to use psuedo inverse as the inverse Jacobian during IK solve.\n"
-                                     "    position_tolerance (double): The end effector Cartesian position tolerance.\n"
-                                     "    orientation_tolerance (double): The end effector orientation tolerance.\n"
-                                     "    max_iterations (int) = 20: Maximum number of iterations before solver quits.\n"
-                                     "Returns:\n"
-                                     "    bool: Whether the IK solver succeeded or not\n"
-                                     "    np.ndarray[J, 1]: A joint angle solution corresponding to T.\n"
-                                     "                      If IK solver failed, result is undefined. \n",
-                                     py::arg("M"), py::arg("S"), py::arg("T"), py::arg("joint_position_guess"),
-                                     py::arg("joint_lower_limits"), py::arg("joint_upper_limits"),
-                                     py::arg("project_to_joint_limits"), py::arg("use_psuedo_inverse"),
-                                     py::arg("position_tolerance"), py::arg("orientation_tolerance"),
-                                     py::arg("max_iterations") = 20);
+m.def("inverse", &kincpp::IKinSpace,
+      "Inverse kinematics function. \n\n"
+      "Parameters:\n"
+      "    M (np.ndarray[4, 4]): Home configuration of end effector.\n"
+      "    S (np.ndarray[6, J]): Screw axes of joints when in home configuration.\n"
+      "    T (np.ndarray[4, 4]): Desired end effector position and orientation.\n"
+      "    joint_position_guess (np.ndarray[J, 1]): Joint positions initial guess for IK solver.\n"
+      "    joint_lower_limits (np.ndarray[J, 1]): Joint lower limits. Only used if project_to_joint_limits is True.\n"
+      "    joint_upper_limits (np.ndarray[J, 1]): Joint upper limits. Only used if project_to_joint_limits is True.\n"
+      "    project_to_joint_limits (bool): Whether to respect joint limits during IK solve.\n"
+      "    use_pseudo_inverse (bool): Whether to use pseudo inverse as the inverse Jacobian during IK solve.\n"
+      "    position_tolerance (double): The end effector Cartesian position tolerance.\n"
+      "    orientation_tolerance (double): The end effector orientation tolerance.\n"
+      "    max_iterations (int) = 20: Maximum number of iterations before solver quits.\n"
+      "Returns:\n"
+      "    bool: Whether the IK solver succeeded or not\n"
+      "    np.ndarray[J, 1]: A joint angle solution corresponding to T.\n"
+      "                      If IK solver failed, result is undefined. \n",
+      py::arg("M"), py::arg("S"), py::arg("T"), py::arg("joint_position_guess"),
+      py::arg("joint_lower_limits"), py::arg("joint_upper_limits"),
+      py::arg("project_to_joint_limits"),
+      py::arg("use_pseudo_inverse"),
+      py::arg("position_tolerance"), py::arg("orientation_tolerance"),
+      py::arg("max_iterations") = 20);
 }
