@@ -5,7 +5,7 @@ The core C++ logic is almost entirely from [ModernRoboticsCpp](https://github.co
 
 ### Pip installation
 
-A pip package currently exists but binary wheels exist solely for Python3.10 on Linux. If compatible, you may install from pip as follows 
+A pip package currently exists but binary wheels exist solely for Python3.10 on Linux. If compatible, you may install from pip as follows
 ```bash
 python3.10 -m pip install kincpp
 ```
@@ -18,7 +18,7 @@ pip install pybind11
 ```
 Then, simply build the shared library file
 ```bash
-mkdir build && cd build && cmake .. 
+mkdir build && cd build && cmake ..
 make -j4
 ```
 This will produce a `kincpp.cpython-{YOUR_PYTHON_VERSION}-{YOUR_ARCH}.so` file that you can use directly for your python applications. You can also install it as python package by running

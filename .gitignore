@@ -5,3 +5,4 @@ kincpp.egg-info/
 .idea/
 *.so
 result
+cmake-build-debug
