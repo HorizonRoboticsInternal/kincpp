@@ -111,18 +111,6 @@ Eigen::Matrix3d MatrixLog3(const Eigen::Matrix3d& R) {
     }
 }
 
-/* Function: Combines a rotation matrix and position vector into a single
- * 				Special Euclidian Group (SE3) homogeneous transformation matrix
- * Inputs: Rotation Matrix (R), Position Vector (p)
- * Returns: Matrix of T = [ [R, p],
- *						    [0, 1] ]
- */
-Eigen::MatrixXd RpToTrans(const Eigen::Matrix3d& R, const Eigen::Vector3d& p) {
-    Eigen::MatrixXd m_ret(4, 4);
-    m_ret << R, p, 0, 0, 0, 1;
-    return m_ret;
-}
-
 /* Function: Separates the rotation matrix and position vector from
  *				the transfomation matrix representation
  * Inputs: Homogeneous transformation matrix
@@ -268,23 +256,6 @@ Eigen::MatrixXd JacobianSpace(const Eigen::MatrixXd& Slist, const Eigen::MatrixX
     return Js;
 }
 
-/*
- * Function: Gives the body Jacobian
- * Inputs: Screw axis in BODY position, joint configuration
- * Returns: 6xn Bobdy Jacobian
- */
-Eigen::MatrixXd JacobianBody(const Eigen::MatrixXd& Blist, const Eigen::MatrixXd& thetaList) {
-    Eigen::MatrixXd Jb = Blist;
-    Eigen::MatrixXd T = Eigen::MatrixXd::Identity(4, 4);
-    Eigen::VectorXd bListTemp(Blist.col(0).size());
-    for (int i = thetaList.size() - 2; i >= 0; i--) {
-        bListTemp << Blist.col(i + 1) * thetaList(i + 1);
-        T = T * MatrixExp6(VecToSE3(-1 * bListTemp));
-        Jb.col(i) = Adjoint(T) * Blist.col(i);
-    }
-    return Jb;
-}
-
 Eigen::MatrixXd TransInv(const Eigen::MatrixXd& transform) {
     auto rp = kincpp::TransToRp(transform);
     auto Rt = rp.at(0).transpose();
@@ -295,69 +266,6 @@ Eigen::MatrixXd TransInv(const Eigen::MatrixXd& transform) {
     inv.block(0, 3, 3, 1) = t;
     inv(3, 3) = 1;
     return inv;
-}
-
-Eigen::MatrixXd RotInv(const Eigen::MatrixXd& rotMatrix) {
-    return rotMatrix.transpose();
-}
-
-Eigen::VectorXd ScrewToAxis(Eigen::Vector3d q, Eigen::Vector3d s, double h) {
-    Eigen::VectorXd axis(6);
-    axis.segment(0, 3) = s;
-    axis.segment(3, 3) = q.cross(s) + (h * s);
-    return axis;
-}
-
-Eigen::VectorXd AxisAng6(const Eigen::VectorXd& expc6) {
-    Eigen::VectorXd v_ret(7);
-    double theta = Eigen::Vector3d(expc6(0), expc6(1), expc6(2)).norm();
-    if (NearZero(theta))
-        theta = Eigen::Vector3d(expc6(3), expc6(4), expc6(5)).norm();
-    v_ret << expc6 / theta, theta;
-    return v_ret;
-}
-
-Eigen::MatrixXd ProjectToSO3(const Eigen::MatrixXd& M) {
-    Eigen::JacobiSVD<Eigen::MatrixXd> svd(M, Eigen::ComputeFullU | Eigen::ComputeFullV);
-    Eigen::MatrixXd R = svd.matrixU() * svd.matrixV().transpose();
-    if (R.determinant() < 0)
-        // In this case the result may be far from M; reverse sign of 3rd column
-        R.col(2) *= -1;
-    return R;
-}
-
-Eigen::MatrixXd ProjectToSE3(const Eigen::MatrixXd& M) {
-    Eigen::Matrix3d R = M.block<3, 3>(0, 0);
-    Eigen::Vector3d t = M.block<3, 1>(0, 3);
-    Eigen::MatrixXd T = RpToTrans(ProjectToSO3(R), t);
-    return T;
-}
-
-double DistanceToSO3(const Eigen::Matrix3d& M) {
-    if (M.determinant() > 0)
-        return (M.transpose() * M - Eigen::Matrix3d::Identity()).norm();
-    else
-        return 1.0e9;
-}
-
-double DistanceToSE3(const Eigen::Matrix4d& T) {
-    Eigen::Matrix3d matR = T.block<3, 3>(0, 0);
-    if (matR.determinant() > 0) {
-        Eigen::Matrix4d m_ret;
-        m_ret << matR.transpose() * matR, Eigen::Vector3d::Zero(3), T.row(3);
-        m_ret = m_ret - Eigen::Matrix4d::Identity();
-        return m_ret.norm();
-    }
-    else
-        return 1.0e9;
-}
-
-bool TestIfSO3(const Eigen::Matrix3d& M) {
-    return std::abs(DistanceToSO3(M)) < 1e-3;
-}
-
-bool TestIfSE3(const Eigen::Matrix4d& T) {
-    return std::abs(DistanceToSE3(T)) < 1e-3;
 }
 
 std::pair<bool, Eigen::VectorXd>
