@@ -36,16 +36,16 @@ MatX KinematicsSolver::ForwardKinematics(const VecX& q) {
  * Returns: 6xn geometric Jacobian using velocity twist.
  */
 MatX KinematicsSolver::VelocityTwistJacobian(const VecX& q) {
-    MatX Js = S;
+    MatX Jvt = S;
     MatX T = MatX::Identity(4, 4);
     VecX sListTemp(S.col(0).size());
     for (int i = 1; i < q.size(); i++) {
         sListTemp << S.col(i - 1) * q(i - 1);
         T = T * MatrixExp6(VecToSE3(sListTemp));
-        Js.col(i) = Adjoint(T) * S.col(i);
+        Jvt.col(i) = Adjoint(T) * S.col(i);
     }
 
-    return Js;
+    return Jvt;
 }
 
 /* Function: Gives the geometric Jacobian using spatial velocity.
@@ -53,14 +53,14 @@ MatX KinematicsSolver::VelocityTwistJacobian(const VecX& q) {
  * Returns: 6xn geometric Jacobian using spatial velocity.
  */
 MatX KinematicsSolver::SpatialVelocityJacobian(const VecX& q) {
-    MatX Js = VelocityTwistJacobian(q);
+    MatX Jvt = VelocityTwistJacobian(q);
     // The top three rows correspond to angular and the bottom three rows are translational.
     // Here, we must swap them.
-    Js.topRows(3).swap(Js.bottomRows(3));
+    Jvt.topRows(3).swap(Jvt.bottomRows(3));
     MatX velocity_tf = Eigen::Matrix<double, 6, 6>::Identity();
     Vec3 ee_pos = ForwardKinematics(q).block<3, 1>(0, 3);
     velocity_tf.block<3, 3>(0, 3) = -VecToSO3(ee_pos);
-    return velocity_tf * Js;
+    return velocity_tf * Jvt;
 }
 
 std::pair<bool, VecX> KinematicsSolver::InverseKinematics(const MatX& desired_ee_tf, VecX& q_guess,
@@ -71,8 +71,8 @@ std::pair<bool, VecX> KinematicsSolver::InverseKinematics(const MatX& desired_ee
                                                           int max_iterations) {
     switch (solver_type) {
         case NEWTON:
-            return IK_Newton(desired_ee_tf, q_guess, position_tolerance, orientation_tolerance,
-                             project_to_joint_limits, use_pseudo_inverse, max_iterations);
+            return IK_NM(desired_ee_tf, q_guess, position_tolerance, orientation_tolerance,
+                         project_to_joint_limits, use_pseudo_inverse, max_iterations);
         case QP:
             return IK_QP(desired_ee_tf, q_guess, position_tolerance, orientation_tolerance,
                          max_iterations);
@@ -81,11 +81,11 @@ std::pair<bool, VecX> KinematicsSolver::InverseKinematics(const MatX& desired_ee
     }
 }
 
-std::pair<bool, VecX> KinematicsSolver::IK_Newton(const MatX& desired_ee_tf, VecX& q_guess,
-                                                  double position_tolerance,
-                                                  double orientation_tolerance,
-                                                  bool project_to_joint_limits,
-                                                  bool use_pseudo_inverse, int max_iterations) {
+std::pair<bool, VecX> KinematicsSolver::IK_NM(const MatX& desired_ee_tf, VecX& q_guess,
+                                              double position_tolerance,
+                                              double orientation_tolerance,
+                                              bool project_to_joint_limits, bool use_pseudo_inverse,
+                                              int max_iterations) {
     int i = 0;
     MatX Tfk = ForwardKinematics(q_guess);
     MatX Tdiff = TransInv(Tfk) * desired_ee_tf;
@@ -94,15 +94,15 @@ std::pair<bool, VecX> KinematicsSolver::IK_Newton(const MatX& desired_ee_tf, Vec
     Vec3 linear(Vs(3), Vs(4), Vs(5));
 
     bool err = (angular.norm() > orientation_tolerance || linear.norm() > position_tolerance);
-    MatX Js;
+    MatX Jvt;
     VecX curr_q = q_guess;
     while (err && i++ < max_iterations) {
-        Js = VelocityTwistJacobian(curr_q);
+        Jvt = VelocityTwistJacobian(curr_q);
         if (use_pseudo_inverse) {
-            curr_q += Js.completeOrthogonalDecomposition().pseudoInverse() * Vs;
+            curr_q += Jvt.completeOrthogonalDecomposition().pseudoInverse() * Vs;
         }
         else {
-            curr_q += Js.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(Vs);
+            curr_q += Jvt.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(Vs);
         }
         if (project_to_joint_limits) {
             curr_q = curr_q.array().max(lower_joint_limits).min(upper_joint_limits).matrix();
@@ -134,6 +134,19 @@ std::pair<bool, VecX> KinematicsSolver::IK_Newton(const MatX& desired_ee_tf, Vec
 std::pair<bool, VecX> KinematicsSolver::IK_QP(const MatX& desired_ee_tf, VecX& q_guess,
                                               double position_tolerance,
                                               double orientation_tolerance, int max_iterations) {
+
+    double kj = 0.01;
+
+    MatX Js = SpatialVelocityJacobian(q_guess);
+
+    int nj = q_guess.size();
+    int nm = nj + 6;
+    // Quadratic component of objective function
+    MatX Q = MatX::Identity(nm, nm);
+
+    // Joint velocity component of Q
+    Q.block(0, 0, nj, nj) *= kj;
+
     return std::make_pair(false, Eigen::Vector<double, 6>::Zero());
 }
 

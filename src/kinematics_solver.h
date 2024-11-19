@@ -27,10 +27,9 @@ class KinematicsSolver
     MatX SpatialVelocityJacobian(const VecX& q);
 
   protected:
-    std::pair<bool, VecX> IK_Newton(const MatX& desired_ee_tf, VecX& q_guess,
-                                    double position_tolerance, double orientation_tolerance,
-                                    bool project_to_joint_limits = true,
-                                    bool use_pseudo_inverse = false, int max_iterations = 20);
+    std::pair<bool, VecX> IK_NM(const MatX& desired_ee_tf, VecX& q_guess, double position_tolerance,
+                                double orientation_tolerance, bool project_to_joint_limits = true,
+                                bool use_pseudo_inverse = false, int max_iterations = 20);
     std::pair<bool, VecX> IK_QP(const MatX& desired_ee_tf, VecX& q_guess, double position_tolerance,
                                 double orientation_tolerance, int max_iterations = 20);
 
