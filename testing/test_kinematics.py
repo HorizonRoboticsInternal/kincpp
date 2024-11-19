@@ -23,8 +23,7 @@ def fk_test():
     """
     solver = kincpp.KinematicsSolver(M, S,
                                      lower_joint_limits=-np.ones(3) * np.inf,
-                                     upper_joint_limits=np.ones(3) * np.inf,
-                                     solver_type=kincpp.NEWTON)
+                                     upper_joint_limits=np.ones(3) * np.inf)
 
     q_guess = np.array([np.pi / 2.0, 3, np.pi])
 
@@ -51,8 +50,7 @@ def ik_test():
 
     solver = kincpp.KinematicsSolver(M, S,
                                      lower_joint_limits=-np.ones(3) * np.inf,
-                                     upper_joint_limits=np.ones(3) * np.inf,
-                                     solver_type=kincpp.NEWTON)
+                                     upper_joint_limits=np.ones(3) * np.inf)
 
     q_guess = np.array([1.5, 2.5, 3])
 
@@ -61,11 +59,15 @@ def ik_test():
 
     expected_res = np.array([1.57073783, 2.99966384, 3.1415342], dtype=np.float64)
 
-    success, ik_res = solver.inverse_kinematics(desired_ee_tf, q_guess,
-                                                project_to_joint_limits=False,
-                                                use_pseudo_inverse=False,
-                                                position_tolerance=position_tolerance,
-                                                orientation_tolerance=orientation_tolerance)
+    ik_params = kincpp.IKParams()
+    ik_params.common_params.desired_ee_tf = desired_ee_tf
+    ik_params.common_params.q_guess = q_guess
+    ik_params.common_params.iters = 20
+    ik_params.newton_params.project_to_joint_limits = False
+    ik_params.newton_params.use_pseudo_inverse = False
+    ik_params.solver_type = kincpp.NEWTON
+
+    success, ik_res = solver.inverse_kinematics(ik_params)
 
     assert success == True
     assert np.allclose(ik_res, expected_res, atol=1e-4)
@@ -76,8 +78,7 @@ def ik_test():
 def ja_test():
     solver = kincpp.KinematicsSolver(M, S,
                                      lower_joint_limits=-np.ones(3) * np.inf,
-                                     upper_joint_limits=np.ones(3) * np.inf,
-                                     solver_type=kincpp.NEWTON)
+                                     upper_joint_limits=np.ones(3) * np.inf)
 
     curr_q = np.array([1.5, 2.5, 3])
 

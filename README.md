@@ -1,20 +1,22 @@
 # kincpp
-This repo contains the tools to create the `kincpp` pip package, which contains `pybind` wrapper functions for forward and inverse kinematics written in C++.
+kincpp is a C++ library for computing both forward and inverse kinematics for arbitrary robot
+manipulators. It is written entirely in C++ for speed and has pybind bindings for python.
+Any manipulator can be modelled by simply providing its home configuration end-effector transform `M` and the joint screw axes `S`.
+A tool to compute this for modelled robots can be found [here](https://github.com/Interbotix/kinematics_from_description).
 
-The core C++ logic is largely extracted from [ModernRoboticsCpp](https://github.com/Le0nX/ModernRoboticsCpp) (a C++ implementation of [ModernRobotics](https://github.com/NxRLab/ModernRobotics)) with modifications.
+Core logic to compute FK and Newton-based IK was largely extracted / refactored from
+[ModernRoboticsCpp](https://github.com/Le0nX/ModernRoboticsCpp)
+(a C++ implementation of [ModernRobotics](https://github.com/NxRLab/ModernRobotics)).
+Constraint-based IK using a quadratic programming approach is also available and was ported over
+to C++ from [robotics-toolbox-python](https://github.com/petercorke/robotics-toolbox-python).
+Tentative profiling results show an order of magnitude speed increase over the original Python
+version.
 
-### Pip installation
-
-A pip package currently exists but binary wheels exist solely for Python3.10 on Linux. If compatible, you may install from pip as follows
-```bash
-python3.10 -m pip install kincpp
-```
 
 ### Build from Source
 To build from source, first install the necessary dependencies `Eigen` and `pybind`.
 ```bash
-sudo apt install libeigen3-dev
-pip install pybind11
+sudo apt install libeigen3-dev pybind11-dev
 ```
 Then, simply build the shared library file
 ```bash
@@ -23,23 +25,18 @@ make -j4
 ```
 This will produce a `kincpp.cpython-{YOUR_PYTHON_VERSION}-{YOUR_ARCH}.so` file that you can use directly for your python applications. You can also install it as python package by running
 ```bash
-python setup.py bdist_wheel && cd dist
-pip install kincpp.0.1-py3-none-any.whl
+pip install .
 ```
-
-### Update pip package
-
-To rebuild the python wheel and update the package, run
-```bash
-python setup.py bdist_wheel
-twine upload dist/{NAME_OF_WHEEL}
-```
+A static library is also created which can be linked to in cmake using the target `kincpp_lib`.
 
 ### Testing
 Once `kincpp` is installed in some way, you can test that everything is working by running the provided unit test.
 ```bash
 python testing/test_kinematics.py
+python testing/ik_qp_test.py
 ```
+These files also contain useful examples for instantiating a `KinematicsSolver` and calling
+the forward and inverse kinematics functions.
 
 ### Troubleshooting
 If your system cannot find `Eigen`, you may need to create symlinks if your `Eigen` package is actually named `eigen3/Eigen`.
