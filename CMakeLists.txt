@@ -8,7 +8,9 @@ find_package(Eigen3 REQUIRED)
 
 set(LIBRARY_OUTPUT_PATH "../kincpp")
 
-pybind11_add_module(kincpp src/kinematics.cpp)
+pybind11_add_module(kincpp
+        src/kinematics_solver.cpp
+        src/utils.cpp)
 
 target_link_libraries(kincpp PRIVATE
     Eigen3::Eigen)

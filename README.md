@@ -1,7 +1,7 @@
 # kincpp
 This repo contains the tools to create the `kincpp` pip package, which contains `pybind` wrapper functions for forward and inverse kinematics written in C++.
 
-The core C++ logic is almost entirely from [ModernRoboticsCpp](https://github.com/Le0nX/ModernRoboticsCpp) (a C++ implementation of [ModernRobotics](https://github.com/NxRLab/ModernRobotics)) with slight modifications.
+The core C++ logic is largely extracted from [ModernRoboticsCpp](https://github.com/Le0nX/ModernRoboticsCpp) (a C++ implementation of [ModernRobotics](https://github.com/NxRLab/ModernRobotics)) with modifications.
 
 ### Pip installation
 
