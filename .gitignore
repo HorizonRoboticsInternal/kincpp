@@ -6,3 +6,5 @@ kincpp.egg-info/
 *.so
 result
 cmake-build-debug
+*_lib.a
+lib
