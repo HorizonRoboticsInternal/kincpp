@@ -219,4 +219,107 @@ MatX TransInv(const MatX& transform) {
     return inv;
 }
 
+VecX AngleAxisCpp(const MatX& T, const MatX& Td) {
+    VecX e(6);
+
+    // Extract rotation matrices and position vectors
+    auto T_rp = TransToRp(T);
+    auto Td_rp = TransToRp(Td);
+
+    Mat3 R = Td_rp.at(0) * T_rp.at(0).transpose();
+    Vec3 p = Td_rp.at(1) - T_rp.at(1);
+
+    // Set translational error
+    e.head<3>() = p;
+
+    // Compute rotational error
+    Vec3 li = SO3ToVec(R - R.transpose());
+    if (NearZero(li.norm())) {
+        // Handle diagonal case
+        if (R.trace() > 0) {
+            e.tail<3>().setZero();  // No rotation
+        } else {
+            e.tail<3>() = (M_PI / 2.0) * (R.diagonal().array() + 1.0).matrix();
+        }
+    } else {
+        // Non-diagonal case
+        double ln = li.norm();
+        e.tail<3>() = std::atan2(ln, R.trace() - 1.0) * li / ln;
+    }
+
+    return e;
+}
+
+std::pair<MatX, VecX> AddBoundConstraints(
+    const std::optional<MatX>& Ain,
+    const std::optional<VecX>& bin,
+    const VecX& lb,
+    const VecX& ub
+) {
+ // Initialize the output matrix and vector
+    MatX A = Ain.value_or(MatX(0, 0)); // Use default empty matrix if Ain is not provided
+    VecX b = bin.value_or(VecX(0));    // Use default empty vector if bin is not provided
+
+    // Number of variables
+    int n = lb.size();
+
+    // Add lower bound constraints
+    if (lb.size() > 0) {
+        MatX lower_bound_A = -MatX::Identity(n, n);
+        VecX lower_bound_b = -lb;
+
+        if (A.rows() == 0) {
+            A = lower_bound_A;
+            b = lower_bound_b;
+        } else {
+            A.conservativeResize(A.rows() + lower_bound_A.rows(), Eigen::NoChange);
+            A.bottomRows(lower_bound_A.rows()) = lower_bound_A;
+
+            b.conservativeResize(b.size() + lower_bound_b.size());
+            b.tail(lower_bound_b.size()) = lower_bound_b;
+        }
+    }
+
+    // Add upper bound constraints
+    if (ub.size() > 0) {
+        MatX upper_bound_A = MatX::Identity(n, n);
+        VecX upper_bound_b = ub;
+
+        if (A.rows() == 0) {
+            A = upper_bound_A;
+            b = upper_bound_b;
+        } else {
+            A.conservativeResize(A.rows() + upper_bound_A.rows(), Eigen::NoChange);
+            A.bottomRows(upper_bound_A.rows()) = upper_bound_A;
+
+            b.conservativeResize(b.size() + upper_bound_b.size());
+            b.tail(upper_bound_b.size()) = upper_bound_b;
+        }
+    }
+
+    return std::make_pair(A, b);
+}
+
+quadprogpp::Vector<double> ConvertEigenVecToQPVec(const VecX& eigen_vec) {
+    quadprogpp::Vector<double> qp_vec(eigen_vec.size());
+    // Copy elements from the Eigen vector to the quadprogpp::Vector
+    for (unsigned int i = 0; i < eigen_vec.size(); ++i) {
+        qp_vec[i] = eigen_vec[i];
+    }
+    return qp_vec;
+}
+
+quadprogpp::Matrix<double> ConvertEigenMatToQPMat(const MatX& eigen_mat) {
+    // Create a quadprogpp::Matrix with the same size as the Eigen matrix
+    quadprogpp::Matrix<double> qp_mat(eigen_mat.rows(), eigen_mat.cols());
+
+    // Copy elements from the Eigen matrix to the quadprogpp::Matrix
+    for (unsigned int i = 0; i < eigen_mat.rows(); ++i) {
+        for (unsigned int j = 0; j < eigen_mat.cols(); ++j) {
+            qp_mat[i][j] = eigen_mat(i, j);
+        }
+    }
+    return qp_mat;
+}
+
 }  // namespace kincpp

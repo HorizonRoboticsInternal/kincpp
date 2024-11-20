@@ -3,6 +3,8 @@
 #include <Eigen/Dense>
 #include <cmath>
 #include <vector>
+#include <optional>
+#include <QuadProg++/Array.hh>
 
 namespace kincpp
 {
@@ -10,8 +12,10 @@ constexpr double PI = 3.141592653589793;
 
 using ArrX = Eigen::ArrayXd;
 using Vec3 = Eigen::Vector3d;
+using Vec6 = Eigen::Vector<double, 6>;
 using VecX = Eigen::VectorXd;
 using Mat3 = Eigen::Matrix3d;
+using Mat4 = Eigen::Matrix4d;
 using MatX = Eigen::MatrixXd;
 
 /* Function: Find if the value is negligible enough to consider 0 */
@@ -56,4 +60,16 @@ MatX MatrixLog6(const MatX& T);
 
 /* Function: Computes the inverse of a homogeneous transformation matrix */
 MatX TransInv(const MatX& transform);
+
+VecX AngleAxisCpp(const MatX& T, const MatX& Td);
+
+std::pair<MatX, VecX> AddBoundConstraints(const std::optional<MatX>& Ain,
+                                          const std::optional<VecX>& bin,
+                                          const VecX& lb,
+                                          const VecX& ub);
+
+quadprogpp::Vector<double> ConvertEigenVecToQPVec(const VecX& eigen_vec);
+
+quadprogpp::Matrix<double> ConvertEigenMatToQPMat(const MatX& eigen_mat);
+
 }  // namespace kincpp

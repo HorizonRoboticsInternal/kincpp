@@ -13,4 +13,6 @@ pybind11_add_module(kincpp
         src/utils.cpp)
 
 target_link_libraries(kincpp PRIVATE
-    Eigen3::Eigen)
+    Eigen3::Eigen
+    quadprog
+)
