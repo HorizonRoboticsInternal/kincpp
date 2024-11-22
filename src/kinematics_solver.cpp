@@ -159,6 +159,7 @@ std::pair<bool, VecX> KinematicsSolver::IK_QP(const CommonParams& common_params,
     // TODO: add manipulability maximization if needed, which will change c
     VecX c = VecX::Zero(njs);  // Linear component of the QP objective
     double err;
+    bool success;
 
     // Start iteration
     for (int i = 0; i < iters; i++) {
@@ -227,8 +228,13 @@ std::pair<bool, VecX> KinematicsSolver::IK_QP(const CommonParams& common_params,
 
         // Update joint configuration
         curr_q += sol.head(nj);
+
+        success = tol > err;
+        if (success) {
+            break;
+        }
     }
-    return {tol < err, curr_q};
+    return {success, curr_q};
 }
 }  // namespace kincpp
 
