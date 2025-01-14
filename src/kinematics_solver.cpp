@@ -149,7 +149,17 @@ std::pair<bool, VecX> KinematicsSolver::IK_QP(const CommonParams& common_params,
     double ps = qp_params.ps;
     double pi = qp_params.pi;
     double tol = qp_params.tolerance;
-    VecX delta_limit = VecX::Constant(nj, qp_params.delta_limit);
+
+    // Here are delta limits as specified by the delta_limit parameter.
+    MatX delta_limits = MatX::Zero(2, nj);
+    delta_limits.row(0) = VecX::Constant(nj, -qp_params.delta_limit);
+    delta_limits.row(1) = VecX::Constant(nj, qp_params.delta_limit);
+    // Next, we need to clip these for joints near a joint limit.
+    ArrX space_to_lower = (lower_joint_limits - curr_q.array()).cwiseMin(0);
+    ArrX space_to_upper = (upper_joint_limits - curr_q.array()).cwiseMax(0);
+    delta_limits.row(0) = delta_limits.row(0).transpose().array().cwiseMax(space_to_lower);
+    delta_limits.row(1) = delta_limits.row(1).transpose().array().cwiseMin(space_to_upper);
+
     Vec6 slack_bounds = Vec6::Constant(INF);
 
     // Precompute constant matrices
@@ -209,8 +219,8 @@ std::pair<bool, VecX> KinematicsSolver::IK_QP(const CommonParams& common_params,
 
         // Cumulative delta constraints
         VecX cumulative_delta = curr_q - orig_q;
-        VecX lower_bounds = -delta_limit - cumulative_delta;
-        VecX upper_bounds = delta_limit - cumulative_delta;
+        VecX lower_bounds = delta_limits.row(0).transpose() - cumulative_delta;
+        VecX upper_bounds = delta_limits.row(1).transpose() - cumulative_delta;
 
         VecX lb(12);
         lb << lower_bounds, -slack_bounds;
