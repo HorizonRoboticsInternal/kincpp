@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 project(kincpp)
 
+find_package(Python3 COMPONENTS Development REQUIRED)
+include_directories(${Python3_INCLUDE_DIRS})
+
 set(CMAKE_CXX_FLAGS "-O3 -DNDEBUG -Wno-deprecated-declarations")
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
