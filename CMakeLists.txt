@@ -1,13 +1,18 @@
 cmake_minimum_required(VERSION 3.10)
 project(kincpp)
 
-find_package(Python3 COMPONENTS Development REQUIRED)
-include_directories(${Python3_INCLUDE_DIRS})
-
 set(CMAKE_CXX_FLAGS "-O3 -DNDEBUG -Wno-deprecated-declarations")
+# cmake_policy(SET CMP0148 NEW)
 
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+
+find_package(Python3 3.9 EXACT REQUIRED COMPONENTS Interpreter Development)
+# set(PYBIND11_PYTHON_VERSION 3.9)
+set(PYBIND11_FINDPYTHON OFF)
+# find_package(Python3 3.9 EXACT REQUIRED COMPONENTS Interpreter Development)
 find_package(pybind11 REQUIRED)
+
+# find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+include_directories(${Python3_INCLUDE_DIRS})
 find_package(Eigen3 REQUIRED)
 
 set(LIBRARY_OUTPUT_PATH "../kincpp")
