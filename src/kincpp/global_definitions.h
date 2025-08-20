@@ -19,5 +19,6 @@ using Mat3 = Eigen::Matrix3d;
 using Mat4 = Eigen::Matrix4d;
 using Mat6 = Eigen::Matrix<double, 6, 6>;
 using MatX = Eigen::MatrixXd;
+using MatX6 = Eigen::Matrix<double, Eigen::Dynamic, 6>;
 
 }  // namespace kincpp

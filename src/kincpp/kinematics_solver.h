@@ -13,7 +13,14 @@ typedef enum {
 struct CommonParams
 {
     Mat4 desired_ee_tf;
-    VecX q_guess;
+    Vec6 q_guess;
+    int iters{};
+};
+
+struct BatchedCommonParams
+{
+    std::vector<Mat4> desired_ee_tfs;
+    MatX6 q_guesses;
     int iters{};
 };
 
@@ -39,6 +46,7 @@ struct QPParams
 struct IKParams
 {
     CommonParams common_params;
+    BatchedCommonParams batched_common_params;
     NewtonParams newton_params;
     QPParams qp_params;
     SolverType solver_type = NEWTON;
@@ -51,8 +59,10 @@ class KinematicsSolver
                      const VecX& upper_joint_limits);
     ~KinematicsSolver();
 
-    MatX ForwardKinematics(const VecX& q);
+    Mat4 ForwardKinematics(const VecX& q);
+    std::vector<Mat4> BatchedForwardKinematics(const MatX6& q);
     std::pair<bool, VecX> InverseKinematics(const IKParams& params);
+    std::pair<std::vector<bool>, MatX> BatchedInverseKinematics(const IKParams& params);
 
     MatX VelocityTwistJacobian(const VecX& q);
     MatX SpatialVelocityJacobian(const VecX& q);
@@ -62,7 +72,7 @@ class KinematicsSolver
                                 const NewtonParams& newton_params);
     std::pair<bool, VecX> IK_QP(const CommonParams& common_params, const QPParams& qp_params);
 
-    MatX M;
+    Mat4 M;
     MatX S;
     ArrX lower_joint_limits;
     ArrX upper_joint_limits;

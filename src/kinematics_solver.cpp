@@ -3,6 +3,7 @@
 #include "kincpp/utils.h"
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 namespace py = pybind11;
 
@@ -25,12 +26,27 @@ KinematicsSolver::~KinematicsSolver() = default;
  *				at the specified coordinates
  * Notes: FK means Forward Kinematics
  */
-MatX KinematicsSolver::ForwardKinematics(const VecX& q) {
-    MatX T = M;
+Mat4 KinematicsSolver::ForwardKinematics(const VecX& q) {
+    Mat4 T = M;
     for (int i = (q.size() - 1); i > -1; i--) {
         T = MatrixExp6(VecToSE3(S.col(i) * q(i))) * T;
     }
     return T;
+}
+
+/* Function: Batched version of ForwardKinematics.
+ *           Uses OMP threads for fast parallelization.
+ * Inputs: Joint configurations as a (N, 6) matrix.
+ * Returns: A vector of end-effector transformation matrices.
+ */
+std::vector<Mat4> KinematicsSolver::BatchedForwardKinematics(const MatX6& q) {
+    std::vector<Mat4> res(q.rows());
+
+#pragma omp parallel for
+    for (int i = 0; i < q.rows(); i++) {
+        res.at(i) = ForwardKinematics(q.row(i).transpose());
+    }
+    return res;
 }
 
 /* Function: Gives the geometric Jacobian using velocity twist.
@@ -65,6 +81,12 @@ MatX KinematicsSolver::SpatialVelocityJacobian(const VecX& q) {
     return velocity_tf * Jvt;
 }
 
+/* Function: Compute inverse kinematics.
+ * Inputs: IK parameters with common_params specified.
+ * Returns: A tuple containing
+ *              a success boolean
+ *              a (J, ) vector of joint angles
+ */
 std::pair<bool, VecX> KinematicsSolver::InverseKinematics(const IKParams& params) {
     switch (params.solver_type) {
         case NEWTON:
@@ -74,6 +96,46 @@ std::pair<bool, VecX> KinematicsSolver::InverseKinematics(const IKParams& params
         default:
             throw std::runtime_error("Invalid solver type");
     }
+}
+
+/* Function: Batched version of InverseKinematics.
+ *           Uses OMP threads for fast parallelization.
+ * Inputs: IK parameters with batched_common_params specified.
+ * Returns: A tuple containing
+ *              a vector of N success booleans
+ *              a (N, J) matrix of joint configurations
+ */
+std::pair<std::vector<bool>, MatX>
+KinematicsSolver::BatchedInverseKinematics(const IKParams& params) {
+    std::vector<Mat4> desired_ee_tfs = params.batched_common_params.desired_ee_tfs;
+    MatX6 q_guesses = params.batched_common_params.q_guesses;
+
+    size_t batch_size = desired_ee_tfs.size();
+    std::vector<bool> success_res(batch_size);
+    MatX q_res(batch_size, q_guesses.cols());
+
+#pragma omp parallel for
+    for (int i = 0; i < batch_size; i++) {
+
+        CommonParams tmp_common_params;
+        tmp_common_params.desired_ee_tf = desired_ee_tfs.at(i);
+        tmp_common_params.q_guess = q_guesses.row(i).transpose();
+        tmp_common_params.iters = params.batched_common_params.iters;
+
+        IKParams tmp_ik_params;
+        tmp_ik_params.common_params = tmp_common_params;
+        tmp_ik_params.newton_params = params.newton_params;
+        tmp_ik_params.qp_params = params.qp_params;
+        tmp_ik_params.solver_type = params.solver_type;
+
+        bool success;
+        VecX q;
+        std::tie(success, q) = InverseKinematics(tmp_ik_params);
+
+        success_res.at(i) = success;
+        q_res.row(i) = q.transpose();
+    }
+    return {success_res, q_res};
 }
 
 std::pair<bool, VecX> KinematicsSolver::IK_NM(const CommonParams& common_params,
@@ -289,6 +351,31 @@ PYBIND11_MODULE(kincpp, m) {
                        "Number of iterations for solving the IK problem.");
 
     /**
+     * kincpp::BatchedCommonParams struct.
+     *
+     * Parameters:
+     *     desired_ee_tfs (List[np.ndarray[4, 4]]): Desired end-effector transformation matrices for
+     * each batch. q_guesses (np.ndarray[N, J]): Initial guesses for each batch, one row per batch
+     * element. iters (int): Number of iterations for each IK solve.
+     */
+    py::class_<kincpp::BatchedCommonParams>(m, "BatchedCommonParams")
+        .def(py::init<>(),
+             R"doc(
+                Batched common parameters for inverse kinematics.
+
+                Parameters:
+                    desired_ee_tfs (List[np.ndarray[4, 4]]): Desired end-effector transformation matrices.
+                    q_guesses (np.ndarray[N, J]): Initial guesses for each batch, one row per batch element.
+                    iters (int): Number of iterations for solving each IK problem.
+             )doc")
+        .def_readwrite("desired_ee_tfs", &kincpp::BatchedCommonParams::desired_ee_tfs,
+                       "List of desired end-effector transformation matrices.")
+        .def_readwrite("q_guesses", &kincpp::BatchedCommonParams::q_guesses,
+                       "Matrix of initial guesses (N x J). Each row corresponds to a batch entry.")
+        .def_readwrite("iters", &kincpp::BatchedCommonParams::iters,
+                       "Number of iterations for each IK solve.");
+
+    /**
      * kincpp::NewtonParams struct.
      *
      * Parameters:
@@ -397,12 +484,18 @@ PYBIND11_MODULE(kincpp, m) {
 
                 Parameters:
                     common_params (kincpp::CommonParams): Common parameters for inverse kinematics.
+                        Should be provided if using KinematicsSolver.InverseKinematics
+                    batched_common_params (kincpp::BatchedCommonParams): Batched common parameters for
+                        batched inverse kinematics. Should be provided if using
+                        KinematicsSolver.BatchInverseKinematics
                     newton_params (kincpp::NewtonParams): Parameters specific to Newton's method.
                     qp_params (kincpp::QPParams): Parameters specific to QP.
                     solver_type (kincpp::SolverType): The solver type to use for IK (default:NEWTON).
              )doc")
         .def_readwrite("common_params", &kincpp::IKParams::common_params,
                        "Common parameters for inverse kinematics.")
+        .def_readwrite("batched_common_params", &kincpp::IKParams::batched_common_params,
+                       "Batched common parameters for inverse kinematics.")
         .def_readwrite("newton_params", &kincpp::IKParams::newton_params,
                        "Parameters specific to IK_NM solver.")
         .def_readwrite("qp_params", &kincpp::IKParams::qp_params,
@@ -483,5 +576,30 @@ PYBIND11_MODULE(kincpp, m) {
 
                 Returns:
                     np.ndarray[6, J]: Geometric Jacobian using spatial velocity.
+             )doc")
+        .def("batched_forward_kinematics", &kincpp::KinematicsSolver::BatchedForwardKinematics,
+             py::arg("q"),
+             R"doc(
+                Batched forward kinematics.
+
+                Parameters:
+                    q (np.ndarray[N, J]): Batch of joint positions. Each row is a configuration.
+
+                Returns:
+                    List[np.ndarray[4, 4]]: List of end-effector transformation matrices.
+             )doc")
+        .def("batched_inverse_kinematics", &kincpp::KinematicsSolver::BatchedInverseKinematics,
+             py::arg("params"),
+             R"doc(
+                Batched inverse kinematics.
+                Uses OMP C++ threads for fast parallelization.
+
+                Parameters:
+                    params (IKParams): IK parameters containing BatchedCommonParams and solver settings.
+
+                Returns:
+                    tuple:
+                        - List[bool]: Success status for each batch entry.
+                        - np.ndarray[N, J]: Matrix of joint angle solutions, one row per batch element.
              )doc");
 }
