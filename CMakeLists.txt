@@ -14,6 +14,7 @@ endif()
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 find_package(pybind11 REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(OpenMP REQUIRED)
 
 set(SOURCES
     src/kinematics_solver.cpp
@@ -37,6 +38,7 @@ target_include_directories(kincpp PRIVATE
 target_link_libraries(kincpp PRIVATE
     Eigen3::Eigen
     pybind11::headers
+    OpenMP::OpenMP_CXX
 )
 
 # Set module properties
