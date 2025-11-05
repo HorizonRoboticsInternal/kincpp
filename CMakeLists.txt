@@ -26,6 +26,7 @@ add_library(kincpp_lib STATIC ${SOURCES})
 target_include_directories(kincpp_lib PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${Python3_INCLUDE_DIRS}
+    ${pybind11_INCLUDE_DIRS}
 )
 target_link_libraries(kincpp_lib PUBLIC Eigen3::Eigen)
 
